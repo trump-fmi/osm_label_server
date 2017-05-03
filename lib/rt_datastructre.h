@@ -1,11 +1,5 @@
-
-#ifndef cheddar_generated_rt_datastructre_h
-#define cheddar_generated_rt_datastructre_h
 #include <stdint.h>
 #include <stdbool.h>
-
-
-
 
 ///
 /// C respresentation of a pst instance It also contains and owns the data that was returned at the
@@ -63,4 +57,3 @@ bool is_good(Datastructure *ds);
 C_Result get_data(Datastructure *ds, double min_t, double min_x, double max_x, double min_y, double max_y);
 
 
-#endif
