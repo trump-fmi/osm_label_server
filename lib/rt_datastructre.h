@@ -8,6 +8,18 @@
 
 
 ///
+/// C respresentation of a pst instance It also contains and owns the data that was returned at the
+/// last request.
+///
+/// After initializing the pst by the C interface, a pointer DataStructure object will be returned
+/// caller. The pointer should not be modified from outside!
+///
+/// To get data, the struct pointer must be given to the corresponding function as an argument.
+///
+typedef void * Datastructure;
+
+
+///
 /// A C representation of a label and its data.
 ///
 /// The result of requests of the data structure will be returned as an c-array of these structs.
@@ -38,17 +50,17 @@ typedef struct C_Result {
 ///
 /// The given file must match the format specified in the [Input Module](input/index.html).
 ///
-void *init(char const* input_path);
+Datastructure *init(char const* input_path);
 
 ///
 /// Check if the initialization was successfull and the returned DataStructure object is valid.
 ///
-bool is_good(void *ds);
+bool is_good(Datastructure *ds);
 
 ///
 /// Get the labels contained in the specified bounding box with a t value >= min_t.
 ///
-C_Result get_data(void *ds, double min_t, double min_x, double max_x, double min_y, double max_y);
+C_Result get_data(Datastructure *ds, double min_t, double min_x, double max_x, double min_y, double max_y);
 
 
 #endif

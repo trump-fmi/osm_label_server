@@ -29,7 +29,7 @@ type Label struct {
 	Label  string  `json:"label"`
 }
 
-var ds unsafe.Pointer
+var ds *C.Datastructure
 
 func main() {
 	label_path := C.CString("bremen-latest.osm.pbf.ce")
