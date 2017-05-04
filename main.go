@@ -53,6 +53,8 @@ func hello(w http.ResponseWriter, r *http.Request) {
 func getLabels(w http.ResponseWriter, r *http.Request) {
 	result := C.get_data(ds, 0.001, 8.0, 9.0, 53.0, 54.0)
 	labels := resultToLabels(result)
+
+	C.free_result(result)
 	json.NewEncoder(w).Encode(labels)
 }
 
