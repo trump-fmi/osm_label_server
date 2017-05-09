@@ -41,13 +41,8 @@ func main() {
 	fmt.Printf("Datastructure good: %t\n", good)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/hello", hello)
 	r.HandleFunc("/label", getLabels)
 	log.Fatal(http.ListenAndServe(":8080", r))
-}
-
-func hello(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode("Hello")
 }
 
 func getLabels(w http.ResponseWriter, r *http.Request) {
