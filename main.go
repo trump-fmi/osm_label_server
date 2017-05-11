@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"unsafe"
 
 	"github.com/gorilla/mux"
@@ -46,7 +47,27 @@ func main() {
 }
 
 func getLabels(w http.ResponseWriter, r *http.Request) {
-	result := C.get_data(ds, 0.001, 8.0, 9.0, 53.0, 54.0)
+	x_min, err := tryParsingFormValue(w, r, "x_min")
+	if err != nil {
+		return
+	}
+	x_max, err := tryParsingFormValue(w, r, "x_max")
+	if err != nil {
+		return
+	}
+	y_min, err := tryParsingFormValue(w, r, "y_min")
+	if err != nil {
+		return
+	}
+	y_max, err := tryParsingFormValue(w, r, "y_max")
+	if err != nil {
+		return
+	}
+	t_min, err := tryParsingFormValue(w, r, "t_min")
+	if err != nil {
+		return
+	}
+	result := C.get_data(ds, t_min, x_min, x_max, y_min, y_max)
 	labels := resultToLabels(result)
 
 	C.free_result(result)
@@ -76,4 +97,30 @@ func resultToLabels(result C.C_Result) []Label {
 		labels[i] = cLabelToLabel(item)
 	}
 	return labels
+}
+
+// parseStringToCDouble takes a string and convers it
+// first into a float (returning an error if this is not possible)
+// and then into a C double (C.double)
+func parseStringToCDouble(s string) (C.double, error) {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, err
+	}
+	d := C.double(f)
+	return d, nil
+}
+
+// tryParsingFormValue gets the form value fromKey from r and tries
+// to convert it to double. If this fails, an error message will be written
+// to w and an error will be returned to the caller
+func tryParsingFormValue(w http.ResponseWriter, r *http.Request, formKey string) (C.double, error) {
+
+	d, err := parseStringToCDouble((r.FormValue(formKey)))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(formKey + " could not be parsed into a number")
+		return 0, err
+	}
+	return d, nil
 }
