@@ -29,6 +29,7 @@ import (
 	"unsafe"
 
 	"github.com/gorilla/mux"
+	"github.com/paulmach/go.geojson"
 )
 
 /*
@@ -102,7 +103,10 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 
 	C.free_result(result)
 	w.Header().Add("Access-Control-Allow-Origin", "*")
-	json.NewEncoder(w).Encode(labels)
+//	json.NewEncoder(w).Encode(labels)
+	rawJSON, err := convertToGeo(labels).MarshalJSON()
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(rawJSON)
 }
 
 // cLabelToLabel takes a pointer to a C_Label given by the
@@ -158,4 +162,22 @@ func tryParsingFormValue(w http.ResponseWriter, r *http.Request, formKey string)
 		return 0, err
 	}
 	return d, nil
+}
+
+// Convert Labels to geoJson objects
+func convertToGeo(labels []Label) *geojson.FeatureCollection {
+	var fcol 	*geojson.FeatureCollection = geojson.NewFeatureCollection()
+	var g 		*geojson.Geometry
+	var feat 	*geojson.Feature
+
+	for _, l := range labels {
+		g = geojson.NewPointGeometry([]float64{l.X, l.Y})
+		feat = geojson.NewFeature(g)
+		feat.Properties["name"] = l.Label
+		feat.Properties["t"] = l.T
+		feat.Properties["prio"] = l.Prio
+		feat.Properties["osm"] = l.Osmid
+		fcol.AddFeature(feat)
+	}
+	return fcol
 }
