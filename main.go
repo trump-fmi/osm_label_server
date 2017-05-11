@@ -179,5 +179,11 @@ func convertToGeo(labels []Label) *geojson.FeatureCollection {
 		feat.Properties["osm"] = l.Osmid
 		fcol.AddFeature(feat)
 	}
+// CRS not possible with this lib, switch if CRS is needed
+	//fcol.CRS["type"] = "name"
+	//crsProp := make(map[string]string)
+	//crsProp["name"] = "urn:ogc:def:crs:OGC:1.3:CRS84"
+	//crsPropJson, _ := json.Marshal(crsProp)
+	//fcol.CRS["properties"] = `{ "name": "urn:ogc:def:crs:OGC:1.3:CRS84" }`
 	return fcol
 }
