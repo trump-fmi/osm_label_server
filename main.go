@@ -101,6 +101,7 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	labels := resultToLabels(result)
 
 	C.free_result(result)
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(labels)
 }
 
