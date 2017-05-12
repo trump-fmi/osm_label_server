@@ -29,7 +29,7 @@ import (
 	"unsafe"
 
 	"github.com/gorilla/mux"
-	"github.com/paulmach/go.geojson"
+	gj "github.com/kpawlik/geojson"
 )
 
 /*
@@ -104,7 +104,7 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	C.free_result(result)
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 //	json.NewEncoder(w).Encode(labels)
-	rawJSON, err := convertToGeo(labels).MarshalJSON()
+	rawJSON, err := json.Marshal(convertToGeo(labels))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(rawJSON)
 }
@@ -165,25 +165,18 @@ func tryParsingFormValue(w http.ResponseWriter, r *http.Request, formKey string)
 }
 
 // Convert Labels to geoJson objects
-func convertToGeo(labels []Label) *geojson.FeatureCollection {
-	var fcol 	*geojson.FeatureCollection = geojson.NewFeatureCollection()
-	var g 		*geojson.Geometry
-	var feat 	*geojson.Feature
+func convertToGeo(labels []Label) *gj.FeatureCollection {
+	var fcol 	*gj.FeatureCollection = gj.NewFeatureCollection([] *gj.Feature {})
+	var g 		*gj.Point
+	var feat 	*gj.Feature
 
 	for _, l := range labels {
-		g = geojson.NewPointGeometry([]float64{l.X, l.Y})
-		feat = geojson.NewFeature(g)
-		feat.Properties["name"] = l.Label
-		feat.Properties["t"] = l.T
-		feat.Properties["prio"] = l.Prio
-		feat.Properties["osm"] = l.Osmid
-		fcol.AddFeature(feat)
+		g = gj.NewPoint(gj.Coordinate{gj.Coord(l.X), gj.Coord(l.Y)})
+		props := map[string]interface{}{"name" : l.Label, "t" : l.T, "prio" : l.Prio, "osm" : l.Osmid}
+		feat = gj.NewFeature(g, props, nil)
+		fcol.AddFeatures(feat)
 	}
-// CRS not possible with this lib, switch if CRS is needed
-	//fcol.CRS["type"] = "name"
-	//crsProp := make(map[string]string)
-	//crsProp["name"] = "urn:ogc:def:crs:OGC:1.3:CRS84"
-	//crsPropJson, _ := json.Marshal(crsProp)
-	//fcol.CRS["properties"] = `{ "name": "urn:ogc:def:crs:OGC:1.3:CRS84" }`
+	crs := gj.NewNamedCRS("urn:ogc:def:crs:OGC:1.3:CRS84")
+	fcol.Crs = crs
 	return fcol
 }
