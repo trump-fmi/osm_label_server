@@ -103,7 +103,6 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 
 	C.free_result(result)
 	w.Header().Add("Access-Control-Allow-Origin", "*")
-//	json.NewEncoder(w).Encode(labels)
 	rawJSON, err := json.Marshal(convertToGeo(labels))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(rawJSON)
@@ -164,19 +163,20 @@ func tryParsingFormValue(w http.ResponseWriter, r *http.Request, formKey string)
 	return d, nil
 }
 
-// Convert Labels to geoJson objects
+// Converts Labels objects to geoJson objects and adds them to the returned feature collection object.
 func convertToGeo(labels []Label) *gj.FeatureCollection {
-	var fcol 	*gj.FeatureCollection = gj.NewFeatureCollection([] *gj.Feature {})
-	var g 		*gj.Point
-	var feat 	*gj.Feature
+	var fcol = gj.NewFeatureCollection([]*gj.Feature{})
+	var g *gj.Point
+	var feat *gj.Feature
 
 	for _, l := range labels {
 		g = gj.NewPoint(gj.Coordinate{gj.Coord(l.X), gj.Coord(l.Y)})
-		props := map[string]interface{}{"name" : l.Label, "t" : l.T, "prio" : l.Prio, "osm" : l.Osmid}
+		// If additional information is needed, add them here
+		props := map[string]interface{}{"name": l.Label, "t": l.T, "prio": l.Prio, "osm": l.Osmid}
 		feat = gj.NewFeature(g, props, nil)
 		fcol.AddFeatures(feat)
 	}
-	crs := gj.NewNamedCRS("urn:ogc:def:crs:OGC:1.3:CRS84")
-	fcol.Crs = crs
+	// Add coordinate system definition for openlayers
+	fcol.Crs = gj.NewNamedCRS("urn:ogc:def:crs:OGC:1.3:CRS84")
 	return fcol
 }
