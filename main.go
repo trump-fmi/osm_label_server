@@ -59,10 +59,10 @@ type Label struct {
 var ds *C.Datastructure
 
 func main() {
-	label_path := C.CString("bremen-latest.osm.pbf.ce")
+	labelPath := C.CString("bremen-latest.osm.pbf.ce")
 	fmt.Printf("Calling init\n")
-	ds = C.init(label_path)
-	C.free(unsafe.Pointer(label_path))
+	ds = C.init(labelPath)
+	C.free(unsafe.Pointer(labelPath))
 	fmt.Printf("init finished\n")
 	good := C.is_good(ds)
 	fmt.Printf("Datastructure good: %t\n", good)
@@ -78,27 +78,27 @@ func main() {
 // library. The obtained result is then transformed into go data types
 // and sent to the client json encoded
 func getLabels(w http.ResponseWriter, r *http.Request) {
-	x_min, err := tryParsingFormValue(w, r, "x_min")
+	xMin, err := tryParsingFormValue(w, r, "x_min")
 	if err != nil {
 		return
 	}
-	x_max, err := tryParsingFormValue(w, r, "x_max")
+	xMax, err := tryParsingFormValue(w, r, "x_max")
 	if err != nil {
 		return
 	}
-	y_min, err := tryParsingFormValue(w, r, "y_min")
+	yMin, err := tryParsingFormValue(w, r, "y_min")
 	if err != nil {
 		return
 	}
-	y_max, err := tryParsingFormValue(w, r, "y_max")
+	yMax, err := tryParsingFormValue(w, r, "y_max")
 	if err != nil {
 		return
 	}
-	t_min, err := tryParsingFormValue(w, r, "t_min")
+	tMin, err := tryParsingFormValue(w, r, "t_min")
 	if err != nil {
 		return
 	}
-	result := C.get_data(ds, t_min, x_min, x_max, y_min, y_max)
+	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
 	labels := resultToLabels(result)
 
 	C.free_result(result)
