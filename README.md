@@ -13,6 +13,15 @@ The current parameters allow the setting of the bounding box and a filtering t v
 * *x_min*, *x_max*, *y_min* and *y_max* define the bounding box
 * *t_min* allows only points with a t value larger than the given value
 
+### Response
+The response is in the [Geojson format](http://geojson.org/). An example with one label is provided below:
+``` json
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[8.7422973,53.051944500000005]},"properties":{"name":"Huchting","osm":30349113,"prio":121,"t":0.7067380674933035}}],"crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}}}
+
+```
+
+
+
 ## Installation
 Only installation via building it yourself is supported at the moment. You will need a [correctly configured](https://golang.org/doc/install#testing) go setup: 
 ```sh
