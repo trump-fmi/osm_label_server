@@ -22,6 +22,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -59,8 +60,13 @@ type Label struct {
 var ds *C.Datastructure
 
 func main() {
-	labelPath := C.CString("bremen-latest.osm.pbf.ce")
-	fmt.Printf("Calling init\n")
+
+	var paramLabel string
+	flag.StringVar(&paramLabel, "ce", "bremen-latest.osm.pbf.ce", "Path to the file with the labels to supply. Should be a 'ce' file.")
+	flag.Parse()
+
+	labelPath := C.CString(paramLabel)
+	fmt.Printf("Calling init for file %s\n", paramLabel)
 	ds = C.init(labelPath)
 	C.free(unsafe.Pointer(labelPath))
 	fmt.Printf("init finished\n")
