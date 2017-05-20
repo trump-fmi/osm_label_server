@@ -29,6 +29,10 @@ import (
 	"strconv"
 	"unsafe"
 
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/gorilla/mux"
 	gj "github.com/kpawlik/geojson"
 )
@@ -66,12 +70,22 @@ func main() {
 	flag.Parse()
 
 	labelPath := C.CString(paramLabel)
-	fmt.Printf("Calling init for file %s\n", paramLabel)
+	log.Printf("Calling init for file %s\n", paramLabel)
 	ds = C.init(labelPath)
 	C.free(unsafe.Pointer(labelPath))
-	fmt.Printf("init finished\n")
+	log.Printf("init finished\n")
 	good := C.is_good(ds)
-	fmt.Printf("Datastructure good: %t\n", good)
+	log.Printf("Datastructure good: %t\n", good)
+
+	// Handle control + C if needed
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println()
+		shutdown()
+		os.Exit(1)
+	}()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/label", getLabels)
@@ -185,4 +199,9 @@ func convertToGeo(labels []Label) *gj.FeatureCollection {
 	// Add coordinate system definition for openlayers
 	fcol.Crs = gj.NewNamedCRS("urn:ogc:def:crs:OGC:1.3:CRS84")
 	return fcol
+}
+
+// Function for controlled shutdown
+func shutdown() {
+	log.Println("Shutting down.")
 }
