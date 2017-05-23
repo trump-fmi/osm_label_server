@@ -22,8 +22,7 @@
 #include <stdbool.h>
 
 ///
-/// C respresentation of a pst instance It also contains and owns the data that was returned at the
-/// last request.
+/// C representation of a pst instance.
 ///
 /// After initializing the pst by the C interface, a pointer DataStructure object will be returned
 /// caller. The pointer should not be modified from outside!
@@ -55,6 +54,7 @@ typedef struct C_Label {
 typedef struct C_Result {
 	uint64_t size;
 	C_Label* data;
+        char* error;
 } C_Result;
 
 ///
@@ -74,6 +74,8 @@ bool is_good(Datastructure *ds);
 ///
 /// Get the labels contained in the specified bounding box with a t value >= min_t.
 ///
+/// The ownership of the result returned by this function is passed to the caller.
+/// To safely deallocate the result pass it to the function `free_result`.
 C_Result get_data(Datastructure *ds, double min_t, double min_x, double max_x, double min_y, double max_y);
 
 
