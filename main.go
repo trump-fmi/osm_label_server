@@ -119,13 +119,14 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
-	defer C.free_result(result)
 	if result.error != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(C.GoString(result.error))
+		C.free_result(result)
 		return
 	}
 	labels := resultToLabels(result)
+	C.free_result(result)
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	rawJSON, err := json.Marshal(convertToGeo(labels))
