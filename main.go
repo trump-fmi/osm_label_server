@@ -120,8 +120,9 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
 	if result.error != nil {
+		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(C.GoString(result.error))
+		json.NewEncoder(w).Encode(C.GoString(result.error) + " (1.1)")
 		C.free_result(result)
 		return
 	}
