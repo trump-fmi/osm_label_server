@@ -58,24 +58,38 @@ type Label struct {
 	Label  string  `json:"label"`
 }
 
-// ds contains the datastructure which the label-library creates and
-// uses. It can only be used through the functions C.get_data and
+// dsMap contains the datastructures which the label-library creates and
+// uses. It can only be created through the functions C.get_data and
 // C.is_good.
-var ds *C.Datastructure
+var dsMap map[string]*C.Datastructure
 
 func main() {
 
 	var paramLabel string
+	var pRootEndpoint string
+	var pPort int
 	flag.StringVar(&paramLabel, "ce", "bremen-latest.osm.pbf.ce", "Path to the file with the labels to supply. Should be a 'ce' file.")
+	flag.IntVar(&pPort, "port", 8080, "Port where the server is reachable")
+	flag.StringVar(&pRootEndpoint, "root", "label", "Endpoint name prefix for all the services")
 	flag.Parse()
 
-	labelPath := C.CString(paramLabel)
-	log.Printf("Calling init for file %s\n", paramLabel)
-	ds = C.init(labelPath)
-	C.free(unsafe.Pointer(labelPath))
-	log.Printf("init finished\n")
-	good := C.is_good(ds)
-	log.Printf("Datastructure good: %t\n", good)
+	// TODO Read from config file
+	tmpInput := map[string]string{"city": "bremen-latest.osm.pbf.ce", "bike": "bremen-latest-2.osm.pbf.ce"}
+
+	dsMap = map[string]*C.Datastructure{}
+	for k, v := range tmpInput {
+		log.Printf("Init for %s with path %s\n", k, v)
+		cLabel := C.CString(v)
+		cDs := C.init(cLabel)
+		C.free(unsafe.Pointer(cLabel))
+		cdIsGood := C.is_good(cDs)
+		if cdIsGood {
+			log.Printf("Init successful. Available endpoint: %s", k)
+			dsMap[k] = cDs
+		} else {
+			log.Printf("Init failed. Data for %s not available.", k)
+		}
+	}
 
 	// Handle control + C if needed
 	c := make(chan os.Signal, 2)
@@ -87,9 +101,10 @@ func main() {
 		os.Exit(1)
 	}()
 
-	r := mux.NewRouter()
-	r.HandleFunc("/label", getLabels)
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Printf("Socket startup at :%d/%s/... ", pPort, pRootEndpoint)
+	r := mux.NewRouter().PathPrefix("/" + pRootEndpoint).Subrouter()
+	r.HandleFunc("/{key}", getLabels)
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(pPort), r))
 }
 
 // getLabels is the handler for the endpoint "/label". It parses the
@@ -119,7 +134,15 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
+	vars := mux.Vars(r)
+	_, isKeySet := vars["key"]
+	_, isEndpointSet := dsMap[vars["key"]]
+	if !isKeySet || !isEndpointSet {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode("No data available.")
+		return
+	}
+	result := C.get_data(dsMap[vars["key"]], tMin, xMin, xMax, yMin, yMax)
 	if result.error != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(C.GoString(result.error))
