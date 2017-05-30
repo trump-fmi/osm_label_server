@@ -68,26 +68,36 @@ func main() {
 	var paramLabel string
 	var pRootEndpoint string
 	var pPort int
-	flag.StringVar(&paramLabel, "ce", "bremen-latest.osm.pbf.ce", "Path to the file with the labels to supply. Should be a 'ce' file.")
+	flag.StringVar(&paramLabel, "endpoints", "default.json", "Path to the file with label files and the endpoints where they are supplied.")
 	flag.IntVar(&pPort, "port", 8080, "Port where the server is reachable")
 	flag.StringVar(&pRootEndpoint, "root", "label", "Endpoint name prefix for all the services")
 	flag.Parse()
 
-	// TODO Read from config file
-	tmpInput := map[string]string{"city": "bremen-latest.osm.pbf.ce", "bike": "bremen-latest-2.osm.pbf.ce"}
+	// Read configuration for endpoints from file
+	endpointConfigs, err := getEndpointConfig(paramLabel)
+	if err != nil {
+		log.Printf("Read config failed. No endpoints set. Shutting down.")
+		return
+	}
 
+	if len(endpointConfigs) == 0 {
+		log.Printf("No endpoints configured. Shutting down.")
+		return
+	}
+
+	// Set up datastructures with the endpoint setups
 	dsMap = map[string]*C.Datastructure{}
-	for k, v := range tmpInput {
-		log.Printf("Init for %s with path %s\n", k, v)
-		cLabel := C.CString(v)
-		cDs := C.init(cLabel)
+	for _, conf := range endpointConfigs {
+		log.Printf("Init for %s with path %s\n", conf.Name, conf.Path)
+		cLabel := C.CString(conf.Path)
+		datastructure := C.init(cLabel)
 		C.free(unsafe.Pointer(cLabel))
-		cdIsGood := C.is_good(cDs)
+		cdIsGood := C.is_good(datastructure)
 		if cdIsGood {
-			log.Printf("Init successful. Available endpoint: %s", k)
-			dsMap[k] = cDs
+			log.Printf("Init successful. Available endpoint: %s", conf.Name)
+			dsMap[conf.Name] = datastructure
 		} else {
-			log.Printf("Init failed. Data for %s not available.", k)
+			log.Printf("Init failed. Data for %s not available.", conf.Name)
 		}
 	}
 
