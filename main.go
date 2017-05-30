@@ -134,14 +134,23 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
+	// check if endpoint is valid
 	vars := mux.Vars(r)
 	_, isKeySet := vars["key"]
-	_, isEndpointSet := dsMap[vars["key"]]
-	if !isKeySet || !isEndpointSet {
+	if !isKeySet {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode("No data available.")
+		json.NewEncoder(w).Encode("No data available. (endpoint name not set)")
 		return
 	}
+	_, isEndpointSet := dsMap[vars["key"]]
+	if !isEndpointSet {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode("No data endpoint available. (endpoint does not exist)")
+		return
+	}
+
+	// request data
 	result := C.get_data(dsMap[vars["key"]], tMin, xMin, xMax, yMin, yMax)
 	if result.error != nil {
 		w.WriteHeader(http.StatusBadRequest)
