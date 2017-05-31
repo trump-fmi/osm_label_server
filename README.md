@@ -40,6 +40,7 @@ The startup can be configured with parameters flags.
 
 ### Flags
 Flags can be set by "-flag value" or "-flag=value". If you want to keep the defaults, you do not have to supply anything. 
+
 | Flag       | Default value | Explanation                                        |
 |------------|---------------|----------------------------------------------------|
 | -endpoints | default.json  | Path to the file with the endpoint configurations. |
