@@ -22,11 +22,16 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"unsafe"
+
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	gj "github.com/kpawlik/geojson"
@@ -59,13 +64,28 @@ type Label struct {
 var ds *C.Datastructure
 
 func main() {
-	labelPath := C.CString("bremen-latest.osm.pbf.ce")
-	fmt.Printf("Calling init\n")
+
+	var paramLabel string
+	flag.StringVar(&paramLabel, "ce", "bremen-latest.osm.pbf.ce", "Path to the file with the labels to supply. Should be a 'ce' file.")
+	flag.Parse()
+
+	labelPath := C.CString(paramLabel)
+	log.Printf("Calling init for file %s\n", paramLabel)
 	ds = C.init(labelPath)
 	C.free(unsafe.Pointer(labelPath))
-	fmt.Printf("init finished\n")
+	log.Printf("init finished\n")
 	good := C.is_good(ds)
-	fmt.Printf("Datastructure good: %t\n", good)
+	log.Printf("Datastructure good: %t\n", good)
+
+	// Handle control + C if needed
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println()
+		shutdown()
+		os.Exit(1)
+	}()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/label", getLabels)
@@ -78,6 +98,7 @@ func main() {
 // library. The obtained result is then transformed into go data types
 // and sent to the client json encoded
 func getLabels(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	xMin, err := tryParsingFormValue(w, r, "x_min")
 	if err != nil {
 		return
@@ -100,9 +121,7 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
 	labels := resultToLabels(result)
-
 	C.free_result(result)
-	w.Header().Add("Access-Control-Allow-Origin", "*")
 	rawJSON, err := json.Marshal(convertToGeo(labels))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(rawJSON)
@@ -172,11 +191,16 @@ func convertToGeo(labels []Label) *gj.FeatureCollection {
 	for _, l := range labels {
 		g = gj.NewPoint(gj.Coordinate{gj.Coord(l.X), gj.Coord(l.Y)})
 		// If additional information is needed, add them here
-		props := map[string]interface{}{"name": l.Label, "t": l.T, "prio": l.Prio, "osm": l.Osmid}
+		props := map[string]interface{}{"name": l.Label, "t": l.T, "prio": l.Prio, "osm": l.Osmid, "lbl_fac": l.LblFac}
 		feat = gj.NewFeature(g, props, nil)
 		fcol.AddFeatures(feat)
 	}
 	// Add coordinate system definition for openlayers
 	fcol.Crs = gj.NewNamedCRS("urn:ogc:def:crs:OGC:1.3:CRS84")
 	return fcol
+}
+
+// Function for controlled shutdown
+func shutdown() {
+	log.Println("Shutting down.")
 }
