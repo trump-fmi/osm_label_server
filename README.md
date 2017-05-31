@@ -1,4 +1,4 @@
-# Osm label server
+# Osm label server  [![Build Status](https://travis-ci.org/trump-fmi/osm_label_server.svg?branch=master)](https://travis-ci.org/trump-fmi/osm_label_server)
 
 Tool for serving OpenstreetMap (osm) points with a description label independet of the map tiles. The main purpose is serving the labels for rotation independent labeling of osm maps. It relies the data and api provided by the [runtime_datastructure](https://github.com/trump-fmi/runtime_datastructure) project. Datasets have to be provided in its format to be accesses by the osm label server. 
 
