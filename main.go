@@ -1,4 +1,4 @@
-// Copyright (C) {2017}  {Florian Barth florianbarth@gmx.de}
+// Copyright (C) {2017}  {Florian Barth florianbarth@gmx.de, Matthias Wagner matzew.mail@gmail.com}
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -58,24 +58,48 @@ type Label struct {
 	Label  string  `json:"label"`
 }
 
-// ds contains the datastructure which the label-library creates and
-// uses. It can only be used through the functions C.get_data and
+// dsMap contains the datastructures which the label-library creates and
+// uses. It can only be created through the functions C.get_data and
 // C.is_good.
-var ds *C.Datastructure
+var dsMap map[string]*C.Datastructure
 
 func main() {
 
 	var paramLabel string
-	flag.StringVar(&paramLabel, "ce", "bremen-latest.osm.pbf.ce", "Path to the file with the labels to supply. Should be a 'ce' file.")
+	var pRootEndpoint string
+	var pPort int
+	flag.StringVar(&paramLabel, "endpoints", "default.json", "Path to the file with label files and the endpoints where they are supplied.")
+	flag.IntVar(&pPort, "port", 8080, "Port where the server is reachable")
+	flag.StringVar(&pRootEndpoint, "root", "label", "Endpoint name prefix for all the services")
 	flag.Parse()
 
-	labelPath := C.CString(paramLabel)
-	log.Printf("Calling init for file %s\n", paramLabel)
-	ds = C.init(labelPath)
-	C.free(unsafe.Pointer(labelPath))
-	log.Printf("init finished\n")
-	good := C.is_good(ds)
-	log.Printf("Datastructure good: %t\n", good)
+	// Read configuration for endpoints from file
+	endpointConfigs, err := getEndpointConfig(paramLabel)
+	if err != nil {
+		log.Printf("Read config failed. No endpoints set. Shutting down.")
+		return
+	}
+
+	if len(endpointConfigs) == 0 {
+		log.Printf("No endpoints configured. Shutting down.")
+		return
+	}
+
+	// Set up datastructures with the endpoint setups
+	dsMap = map[string]*C.Datastructure{}
+	for _, conf := range endpointConfigs {
+		log.Printf("Init for %s with path %s\n", conf.Name, conf.Path)
+		cLabel := C.CString(conf.Path)
+		datastructure := C.init(cLabel)
+		C.free(unsafe.Pointer(cLabel))
+		cdIsGood := C.is_good(datastructure)
+		if cdIsGood {
+			log.Printf("Init successful. Available endpoint: %s", conf.Name)
+			dsMap[conf.Name] = datastructure
+		} else {
+			log.Printf("Init failed. Data for %s not available.", conf.Name)
+		}
+	}
 
 	// Handle control + C if needed
 	c := make(chan os.Signal, 2)
@@ -87,9 +111,10 @@ func main() {
 		os.Exit(1)
 	}()
 
-	r := mux.NewRouter()
-	r.HandleFunc("/label", getLabels)
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Printf("Socket startup at :%d/%s/... ", pPort, pRootEndpoint)
+	r := mux.NewRouter().PathPrefix("/" + pRootEndpoint).Subrouter()
+	r.HandleFunc("/{key}", getLabels)
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(pPort), r))
 }
 
 // getLabels is the handler for the endpoint "/label". It parses the
@@ -119,7 +144,24 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	result := C.get_data(ds, tMin, xMin, xMax, yMin, yMax)
+
+	// check if endpoint is valid
+	vars := mux.Vars(r)
+	_, isKeySet := vars["key"]
+	if !isKeySet {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode("No data available. (endpoint name not set)")
+		return
+	}
+	_, isEndpointSet := dsMap[vars["key"]]
+	if !isEndpointSet {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode("No data endpoint available. (endpoint does not exist)")
+		return
+	}
+
+	// request data
+	result := C.get_data(dsMap[vars["key"]], tMin, xMin, xMax, yMin, yMax)
 	labels := resultToLabels(result)
 	C.free_result(result)
 	rawJSON, err := json.Marshal(convertToGeo(labels))
