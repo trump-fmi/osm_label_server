@@ -74,6 +74,12 @@ func main() {
 	flag.StringVar(&pRootEndpoint, "root", "label", "Endpoint name prefix for all the services")
 	flag.Parse()
 
+	// Flag validation
+	if pPort <= 0 || pPort > 65535 {
+		log.Printf("Port not in allowed range. Cannot start with that configuration. Please use a free port out of [1, 65535].")
+		return
+	}
+
 	// Read configuration for endpoints from file
 	endpointConfigs, err := getEndpointConfig(paramLabel)
 	if err != nil {
