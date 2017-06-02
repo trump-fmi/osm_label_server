@@ -27,6 +27,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 	"unsafe"
 
 	"os"
@@ -114,7 +115,16 @@ func main() {
 	log.Printf("Socket startup at :%d/%s/... ", pPort, pRootEndpoint)
 	r := mux.NewRouter().PathPrefix("/" + pRootEndpoint).Subrouter()
 	r.HandleFunc("/{key}", getLabels)
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(pPort), r))
+
+	// http timeout 15 s
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         ":" + strconv.Itoa(pPort),
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+
+	log.Fatal(srv.ListenAndServe())
 }
 
 // getLabels is the handler for the endpoint "/label". It parses the
