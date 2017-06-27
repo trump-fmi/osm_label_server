@@ -64,10 +64,12 @@ type Label struct {
 // C.is_good.
 var dsMap map[string]*C.Datastructure
 
+// pRootEndpoint is the path prefix for all label collection
+var pRootEndpoint string
+
 func main() {
 
 	var paramLabel string
-	var pRootEndpoint string
 	var pPort int
 	flag.StringVar(&paramLabel, "endpoints", "default.json", "Path to the file with label files and the endpoints where they are supplied.")
 	flag.IntVar(&pPort, "port", 8080, "Port where the server is reachable")
@@ -119,12 +121,14 @@ func main() {
 	}()
 
 	log.Printf("Socket startup at :%d/%s/... ", pPort, pRootEndpoint)
-	r := mux.NewRouter().PathPrefix("/" + pRootEndpoint).Subrouter()
-	r.HandleFunc("/{key}", getLabels)
+	mainRouter := mux.NewRouter()
+	mainRouter.HandleFunc("/labelCollections", getLabelCollections)
+	labelRouter := mainRouter.PathPrefix("/" + pRootEndpoint).Subrouter()
+	labelRouter.HandleFunc("/{key}", getLabels)
 
 	// http timeout 15 s
 	srv := &http.Server{
-		Handler:      r,
+		Handler:      mainRouter,
 		Addr:         ":" + strconv.Itoa(pPort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
@@ -261,4 +265,26 @@ func convertToGeo(labels []Label) *gj.FeatureCollection {
 // Function for controlled shutdown
 func shutdown() {
 	log.Println("Shutting down.")
+}
+
+type labelCollectionResult struct {
+	Root      string   `json:"pathPrefix"`
+	Endpoints []string `json:"endpoints"`
+}
+
+// getLabelCollections returns the path prefix for accessing labels
+// and ean array of all label collections that are currently served.
+func getLabelCollections(w http.ResponseWriter, r *http.Request) {
+	var endPointCount = len(dsMap)
+	var endpoints = make([]string, endPointCount)
+	counter := 0
+	for key := range dsMap {
+		endpoints[counter] = key
+		counter++
+	}
+	labelCollection := labelCollectionResult{
+		pRootEndpoint,
+		endpoints,
+	}
+	json.NewEncoder(w).Encode(labelCollection)
 }
