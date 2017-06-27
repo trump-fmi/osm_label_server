@@ -212,5 +212,7 @@ func getLabelCollections(w http.ResponseWriter, r *http.Request) {
 		pRootEndpoint,
 		endpoints,
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(labelCollection)
 }
