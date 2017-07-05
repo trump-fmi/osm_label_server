@@ -102,7 +102,7 @@ func convertToGeo(labels []Label) *gj.FeatureCollection {
 		g = gj.NewPoint(gj.Coordinate{gj.Coord(l.X), gj.Coord(l.Y)})
 		// If additional information is needed, add them here
 		props := map[string]interface{}{"name": l.Label, "t": l.T, "prio": l.Prio, "osm": l.Osmid, "lbl_fac": l.LblFac}
-		feat = gj.NewFeature(g, props, nil)
+		feat = gj.NewFeature(g, props, l.Osmid)
 		fcol.AddFeatures(feat)
 	}
 	// Add coordinate system definition for openlayers
