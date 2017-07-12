@@ -1,0 +1,177 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "This is the api documentation of the osm_label_server project of the FMI of the University Stuttgart. The project is hosted on github https://github.com/trump-fmi/osm_label_server. Each endpoint has to have a descriptive name {endpointID}, the root {rootID} is named \"label\" by default.",
+    "version": "1.0.0",
+    "title": "Osm label server",
+    "contact": {
+      "email": "support@not.set"
+    },
+    "license": {
+      "name": "GNU General Public License v2.0",
+      "url": "http://www.gnu.org/licenses/"
+    }
+  },
+  "basePath": "/",
+  "tags": [
+    {
+      "name": "label requests",
+      "description": "Requesting label sets"
+    },
+    {
+      "name": "status checks",
+      "description": "Operations to get status inforamtion about the server"
+    }
+  ],
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/{rootID}/{endpointID}": {
+      "get": {
+        "tags": [
+          "label requests"
+        ],
+        "description": "Get a list of labels for the given parameters",
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful action",
+            "schema": {
+              "$ref": "#/definitions/GeoJsonFeatureCollection"
+            }
+          },
+          "400": {
+            "description": "Parameter parsing error.",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "404": {
+            "description": "Endpoint has not data or is not available.",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rootID",
+            "in": "path",
+            "description": "Name of the root which is set for the label server. \"label\" by default.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "endpointID",
+            "in": "path",
+            "required": true,
+            "description": "Endpoint representing a label set which can be queried here.",
+            "type": "string"
+          },
+          {
+            "name": "x_min",
+            "in": "query",
+            "required": true,
+            "type": "number",
+            "format": "float",
+            "description": "Lower x value for the rectangle of which the labels are shown."
+          },
+          {
+            "name": "x_max",
+            "in": "query",
+            "required": true,
+            "type": "number",
+            "format": "float",
+            "description": "Higher x value for the rectangle of whicht the labels are shown."
+          },
+          {
+            "name": "y_min",
+            "in": "query",
+            "required": true,
+            "type": "number",
+            "format": "float",
+            "description": "Lower y value for the rectangle of which the labels are shown."
+          },
+          {
+            "name": "y_max",
+            "in": "query",
+            "required": true,
+            "type": "number",
+            "format": "float",
+            "description": "Higher y value for the rectangle of which the labels are shown."
+          },
+          {
+            "name": "t_min",
+            "in": "query",
+            "required": true,
+            "type": "number",
+            "format": "float",
+            "description": "Filter for the labels. Only labels with higher t value are returned"
+          }
+        ]
+      }
+    },
+    "/labelCollections": {
+      "get": {
+        "tags": [
+          "status checks"
+        ],
+        "description": "Get a list of the current served endpoints.",
+        "responses": {
+          "200": {
+            "description": "Successful action",
+            "schema": {
+              "type": "object",
+              "items": {
+                "$ref": "#/definitions/Endpoints"
+              }
+            }
+          }
+        },
+        "produces": [
+          "application/json"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GeoJsonFeatureCollection": {
+      "description": "GeoJson FeatureCollection as defined in http://geojson.org/geojson-spec.html",
+      "type": "object",
+      "externalDocs": {
+        "url": "http://geojson.org/geojson-spec.html"
+      }
+    },
+    "Endpoints": {
+      "type": "object",
+      "properties": {
+        "pathPrefix": {
+          "type": "string"
+        },
+        "endpoints": {
+          "type": "array",
+          "format": "string"
+        }
+      }
+    },
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
