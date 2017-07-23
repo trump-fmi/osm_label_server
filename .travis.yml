@@ -4,9 +4,11 @@ go:
   - 1.8
   - tip
 
-
 before_install:
   - go get 
 
 script:
   - go test 
+
+env:
+  - LD_LIBRARY_PATH=./lib
