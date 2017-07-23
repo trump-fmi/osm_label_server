@@ -1,8 +1,10 @@
 language: go
 
+dist: trusty
+sudo: required
+
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y glibc
 
 go:
   - 1.8
