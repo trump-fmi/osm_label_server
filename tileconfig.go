@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/Terry-Mao/goconf"
 )
 
@@ -20,7 +18,7 @@ func parseEndpoints(file string) ([]tileEndpoint, error) {
 	conf.Spliter = "="
 	conf.Comment = ";"
 	if err := conf.Parse(file); err != nil {
-		log.Printf("Error during parsing: %s ", err.Error())
+		return nil, err
 	}
 
 	for _, sectionName := range conf.Sections() {

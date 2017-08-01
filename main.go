@@ -66,6 +66,8 @@ var dsMap map[string]*C.Datastructure
 // pRootEndpoint is the path prefix for all label collection
 var pRootEndpoint string
 
+// renderdConfigPath contains the path to renderd.conf. It is used for
+// the labelCollections endpoint
 var renderdConfigPath string
 
 func main() {
@@ -214,7 +216,7 @@ func getLabelCollections(w http.ResponseWriter, r *http.Request) {
 	}
 	tileEndpoints, err := parseEndpoints(renderdConfigPath)
 	if err != nil {
-		// TODO: 500 Status
+		log.Printf("Error during parsing: %s ", err.Error())
 	}
 	labelCollection := labelCollectionResult{
 		pRootEndpoint,
