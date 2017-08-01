@@ -66,6 +66,8 @@ var dsMap map[string]*C.Datastructure
 // pRootEndpoint is the path prefix for all label collection
 var pRootEndpoint string
 
+var renderdConfigPath string
+
 func main() {
 
 	var paramLabel string
@@ -73,6 +75,7 @@ func main() {
 	flag.StringVar(&paramLabel, "endpoints", "default.json", "Path to the file with label files and the endpoints where they are supplied.")
 	flag.IntVar(&pPort, "port", 8080, "Port where the server is reachable")
 	flag.StringVar(&pRootEndpoint, "root", "label", "Endpoint name prefix for all the services")
+	flag.StringVar(&renderdConfigPath, "renderd", "/usr/local/etc/renderd.conf", "Path to renderd.conf used to parse urls of tiles")
 	flag.Parse()
 
 	// Flag validation
@@ -194,8 +197,9 @@ func shutdown() {
 }
 
 type labelCollectionResult struct {
-	Root      string   `json:"pathPrefix"`
-	Endpoints []string `json:"endpoints"`
+	Root          string         `json:"pathPrefix"`
+	Endpoints     []string       `json:"endpoints"`
+	TileEndpoints []tileEndpoint `json:"tileEndpoints"`
 }
 
 // getLabelCollections returns the path prefix for accessing labels
@@ -208,9 +212,14 @@ func getLabelCollections(w http.ResponseWriter, r *http.Request) {
 		endpoints[counter] = key
 		counter++
 	}
+	tileEndpoints, err := parseEndpoints(renderdConfigPath)
+	if err != nil {
+		// TODO: 500 Status
+	}
 	labelCollection := labelCollectionResult{
 		pRootEndpoint,
 		endpoints,
+		tileEndpoints,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
