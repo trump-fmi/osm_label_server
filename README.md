@@ -21,10 +21,11 @@ The response is in the [Geojson format](http://geojson.org/). An example with on
 ```
 
 ## Installation
-Only installation via building it yourself is supported at the moment. You will need a [correctly configured](https://golang.org/doc/install#testing) go setup: 
+For installation via building it yourself you will need a [correctly configured](https://golang.org/doc/install#testing) go setup: 
 ```sh
 go get -u github.com/trump-fmi/osm_label_server
 ```
+A precompiled binary is available under the [current release](https://github.com/trump-fmi/osm_label_server/releases/latest). After extracting the tar.gz the server can be immediately started by using the start.sh as a default configuration and a default label file is included.
 
 For correct startup the binary needs access to the shared library. So you need the following calls for startup: 
 ```sh
@@ -32,6 +33,7 @@ LD_LIBRARY_PATH=LD_LIBRARY_PATH:$GOPATH/src/github.com/trump-fmi/osm_label_serve
 export LD_LIBRARY_PATH
 ./osm_label_server
 ```
+Alternatively you can use the start.sh script located in the root directory of the project.
 
 The server instance now runs and can be terminated by Control+C. 
 
