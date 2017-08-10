@@ -1,4 +1,4 @@
-// Copyright (C) {2017}  {Florian Barth florianbarth@gmx.de, Matthias Wagner matzew.mail@gmail.com}
+// Copyright (C) {2017}  {Florian Barth florianbarth@gmx.de, Matthias Wagner matzew.mail@gmail.com, Marc Schubert marcschubert1@gmx.de}
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -34,6 +36,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/mux"
 )
 
@@ -69,6 +72,11 @@ var pRootEndpoint string
 // renderdConfigPath contains the path to renderd.conf. It is used for
 // the labelCollections endpoint
 var renderdConfigPath string
+
+// readWgMap and reloadWgMap both contain a WaitGroup for every label file to
+// synchronize answering requests and reloading of label files
+var readWgMap map[string]*sync.WaitGroup
+var reloadWgMap map[string]*sync.WaitGroup
 
 func main() {
 
@@ -113,6 +121,18 @@ func main() {
 			log.Printf("Init failed. Data for %s not available.", conf.Name)
 		}
 	}
+
+	// Initialize WaitGroups for synchronizing read/write access to dsMap
+	readWgMap = make(map[string]*sync.WaitGroup, len(endpointConfigs))
+	reloadWgMap = make(map[string]*sync.WaitGroup, len(endpointConfigs))
+	for _, conf := range endpointConfigs {
+		readWgMap[conf.Name] = &sync.WaitGroup{}
+		reloadWgMap[conf.Name] = &sync.WaitGroup{}
+	}
+
+	// Start watching label files for new versions and reloading them if a new
+	// version shows up
+	go watchAndReloadLabelData(endpointConfigs)
 
 	// Handle control + C if needed
 	c := make(chan os.Signal, 2)
@@ -184,8 +204,11 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// request data
+	// request data (including synchronization on read access to dsMap)
+	reloadWgMap[vars["key"]].Wait()
+	readWgMap[vars["key"]].Add(1)
 	result := C.get_data(dsMap[vars["key"]], tMin, xMin, xMax, yMin, yMax)
+	readWgMap[vars["key"]].Done()
 	labels := resultToLabels(result)
 	C.free_result(result)
 	rawJSON, err := json.Marshal(convertToGeo(labels))
@@ -226,4 +249,88 @@ func getLabelCollections(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(labelCollection)
+}
+
+// watchAndReloadLabelData() watches all label files provided in "endpointConfigs".
+// If at least one of them gets modified or replaced, the label file is reloaded.
+// While reloading, all requests for the corresponding endpoint have to wait.
+func watchAndReloadLabelData(endpointConfigs []endpoint) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+
+	done := make(chan bool)
+
+	// start listening for events in the directories being watched
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				var eventPath string
+				if (event.Op&fsnotify.Write == fsnotify.Write) ||
+					(event.Op&fsnotify.Create == fsnotify.Create) {
+					if event.Name[0:2] == "./" {
+						eventPath = event.Name[2:]
+					} else {
+						eventPath = event.Name
+					}
+					for _, conf := range endpointConfigs {
+						if eventPath == conf.Path {
+
+							// reload file
+							log.Printf("Reload for %s with path %s ...", conf.Name, conf.Path)
+							cLabel := C.CString(conf.Path)
+							datastructure := C.init(cLabel)
+							C.free(unsafe.Pointer(cLabel))
+							cdIsGood := C.is_good(datastructure)
+
+							if cdIsGood {
+								// synchronize write on dsMap with requests being processed
+								reloadWgMap[conf.Name].Add(1)
+								readWgMap[conf.Name].Wait()
+
+								// adopt reloaded label file
+								log.Printf("Reload of file %s successful.", conf.Path)
+								C.free(unsafe.Pointer(dsMap[conf.Name])) //TODO: Is this enough to free the datastructure?
+								dsMap[conf.Name] = datastructure
+
+								// finish synchronizing
+								reloadWgMap[conf.Name].Done()
+							} else {
+								log.Printf("Reload of file %s failed. Data for %s not available.", conf.Path, conf.Name)
+							}
+						}
+					}
+				}
+
+			case err := <-watcher.Errors:
+				log.Println("Reload event error: ", err)
+			}
+		}
+	}()
+
+	// Watch all the directories where the provided label files are located
+	for _, conf := range endpointConfigs {
+
+		// case: absolute path
+		if string(conf.Path[0]) == "/" {
+			err = watcher.Add(conf.Path[0:strings.LastIndex(conf.Path, "/")])
+
+			// case: relative path
+		} else {
+			if strings.Contains(conf.Path, "/") {
+				err = watcher.Add(conf.Path[0:strings.LastIndex(conf.Path, "/")])
+			} else {
+				err = watcher.Add(".")
+			}
+		}
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	<-done
 }
