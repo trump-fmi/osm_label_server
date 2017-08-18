@@ -82,3 +82,9 @@ C_Result get_data(Datastructure *ds, double min_t, double min_x, double max_x, d
 /// Deallocate a result returned by `get_data`.
 ///
 void free_result(C_Result result);
+
+
+///
+/// Deallocate a DataStructure handed out to other code
+///
+void free_datastructure(Datastructure *ds);

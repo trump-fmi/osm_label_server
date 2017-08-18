@@ -73,10 +73,8 @@ var pRootEndpoint string
 // the labelCollections endpoint
 var renderdConfigPath string
 
-// readWgMap and reloadWgMap both contain a WaitGroup for every label file to
-// synchronize answering requests and reloading of label files
-var readWgMap map[string]*sync.WaitGroup
-var reloadWgMap map[string]*sync.WaitGroup
+// dsLock contains a ReadWrite Mutex for every configured endpoint.
+var dsLock map[string]*sync.RWMutex
 
 func main() {
 
@@ -122,12 +120,9 @@ func main() {
 		}
 	}
 
-	// Initialize WaitGroups for synchronizing read/write access to dsMap
-	readWgMap = make(map[string]*sync.WaitGroup, len(endpointConfigs))
-	reloadWgMap = make(map[string]*sync.WaitGroup, len(endpointConfigs))
+	dsLock = make(map[string]*sync.RWMutex, len(endpointConfigs))
 	for _, conf := range endpointConfigs {
-		readWgMap[conf.Name] = &sync.WaitGroup{}
-		reloadWgMap[conf.Name] = &sync.WaitGroup{}
+		dsLock[conf.Name] = &sync.RWMutex{}
 	}
 
 	// Start watching label files for new versions and reloading them if a new
@@ -157,7 +152,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-
 	log.Fatal(srv.ListenAndServe())
 }
 
@@ -205,12 +199,11 @@ func getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// request data (including synchronization on read access to dsMap)
-	reloadWgMap[vars["key"]].Wait()
-	readWgMap[vars["key"]].Add(1)
+	dsLock[vars["key"]].RLock()
+	defer dsLock[vars["key"]].RUnlock()
 	result := C.get_data(dsMap[vars["key"]], tMin, xMin, xMax, yMin, yMax)
-	readWgMap[vars["key"]].Done()
 	labels := resultToLabels(result)
-	C.free_result(result)
+	defer C.free_result(result)
 	rawJSON, err := json.Marshal(convertToGeo(labels))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(rawJSON)
@@ -287,18 +280,17 @@ func watchAndReloadLabelData(endpointConfigs []endpoint) {
 							cdIsGood := C.is_good(datastructure)
 
 							if cdIsGood {
-								// synchronize write on dsMap with requests being processed
-								reloadWgMap[conf.Name].Add(1)
-								readWgMap[conf.Name].Wait()
-
 								// adopt reloaded label file
 								log.Printf("Reload of file %s successful.", conf.Path)
-								C.free(unsafe.Pointer(dsMap[conf.Name])) //TODO: Is this enough to free the datastructure?
-								dsMap[conf.Name] = datastructure
+								func() {
+									dsLock[conf.Name].Lock()
+									defer dsLock[conf.Name].Unlock()
+									C.free_datastructure(dsMap[conf.Name]) //TODO: Is this enough to free the datastructure?
+									dsMap[conf.Name] = datastructure
 
-								// finish synchronizing
-								reloadWgMap[conf.Name].Done()
+								}()
 							} else {
+								C.free_datastructure(datastructure)
 								log.Printf("Reload of file %s failed. Data for %s not available.", conf.Path, conf.Name)
 							}
 						}
